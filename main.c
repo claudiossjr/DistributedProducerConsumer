@@ -25,24 +25,30 @@ void * ProducerListener()
 {
   MPI_Status stats;
   printf("ProducerListener\n");
-  int message;
-  MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-  printf("%d\n",message );
+  while (1 != 0)
+  {
+    int message;
+    MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+    printf("%d\n",message );
 
-  int answer = -401;
-  MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
+    int answer = -401;
+    MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
+  }
 }
 
 void * ConsumerListener()
 {
   MPI_Status stats;
   printf("ConsumerListener\n");
-  int message;
-  MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
-  printf("%d\n",message );
+  while (1 != 0)
+  {
+    int message;
+    MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
+    printf("%d\n",message );
 
-  int answer = -400;
-  MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
+    int answer = -400;
+    MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
+  }
 }
 
 // =============================
