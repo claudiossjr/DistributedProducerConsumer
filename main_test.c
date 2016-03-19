@@ -182,9 +182,9 @@ void * ProducerListener()
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
     // printf("Producer receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
     // printf("Producer Index|%d|Consumer Index |%d|\n", producerIndex, consumerIndex );
-    sem_wait (&mutex_buffer);
-    PrintBuffer();
-    sem_post (&mutex_buffer);
+    // sem_wait (&mutex_buffer);
+    // PrintBuffer();
+    // sem_post (&mutex_buffer);
 
     //1. If Message is Producer Request
     if (message == -101)
@@ -211,6 +211,7 @@ void * ProducerListener()
         if (producerIndex == MAXBUFFER) producerIndex = 0;
         //4. Unlock buffer mutex
         // sem_post (&mutex_buffer);
+        PrintBuffer();
       }
       else if (ProducedItens (buffer) < MAXBUFFER && (buffer[producerIndex] != 0))
       {
@@ -225,9 +226,9 @@ void * ProducerListener()
       SendData (-401, stats);
     }
 
-    sem_wait (&mutex_buffer);
-    PrintBuffer();
-    sem_post (&mutex_buffer);
+    // sem_wait (&mutex_buffer);
+    //
+    // sem_post (&mutex_buffer);
 
   }
 }
@@ -246,9 +247,9 @@ void * ConsumerListener()
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
     // printf("Receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
     // printf("Consumer Index |%d| Producer Index| %d\n",consumerIndex, producerIndex );
-    sem_wait (&mutex_buffer);
-    PrintBuffer();
-    sem_post (&mutex_buffer);
+    // sem_wait (&mutex_buffer);
+    // PrintBuffer();
+    // sem_post (&mutex_buffer);
 
     //1. If message is a consumer request.
     if (message == -102)
@@ -277,6 +278,7 @@ void * ConsumerListener()
             if (consumerIndex == MAXBUFFER) consumerIndex = 0;
             SendData (-400, stats);
             SendData (temp, stats);
+            PrintBuffer();
           }
           //1.1.1.4 Unlock buffer
         }
@@ -288,9 +290,9 @@ void * ConsumerListener()
     {
       SendData (-401, stats);
     }
-    sem_wait (&mutex_buffer);
-    PrintBuffer();
-    sem_post (&mutex_buffer);
+    // sem_wait (&mutex_buffer);
+    //
+    // sem_post (&mutex_buffer);
   }
 }
 
