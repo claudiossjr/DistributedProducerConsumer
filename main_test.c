@@ -322,7 +322,7 @@ void PrintBuffer()
   char chrBuffer[10];
   for (i = 0; i < MAXBUFFER; i ++ )
   {
-    printf(" %d", buffer[i] );
+    printf("%d\t", buffer[i] );
   }
   printf("\n");
 }
