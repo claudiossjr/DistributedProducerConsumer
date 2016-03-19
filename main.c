@@ -15,41 +15,8 @@
 
 void * ProducerListener();
 void * ConsumerListener();
-
-
-// =============================
-// FUNCTIONS
-// =============================
-
-void * ProducerListener()
-{
-  MPI_Status stats;
-  printf("ProducerListener\n");
-  while (1 != 0)
-  {
-    int message;
-    MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-    printf("%d\n",message );
-
-    int answer = -401;
-    MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
-  }
-}
-
-void * ConsumerListener()
-{
-  MPI_Status stats;
-  printf("ConsumerListener\n");
-  while (1 != 0)
-  {
-    int message;
-    MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
-    printf("%d\n",message );
-
-    int answer = -400;
-    MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
-  }
-}
+int producedItens(int buffer[MAXBUFFER]);
+void SendData();
 
 // =============================
 // Initialize structures
@@ -64,6 +31,13 @@ int buffer[MAXBUFFER];
 // =============================
 pthread_t coordinatorProducerListener;
 pthread_t coordinatorConsumerListener;
+sem_t mutex_produtor; // Up - Down
+sem_t mutex_consumidor; // True - False
+sem_t mutex_buffer; // True - False
+
+//pthread_mutex_init (&mutex_produtor, MAXBUFFER);
+//pthread_mutex_init (&mutex_consumidor, 0);
+//pthread_mutex_init (&mutex_buffer, 1);
 
 int main(int argc, char **argv)
 {
@@ -138,4 +112,114 @@ int main(int argc, char **argv)
 
   MPI_Finalize();
   return 0;
+}
+
+// =============================
+// FUNCTIONS
+// =============================
+
+void * ProducerListener()
+{
+  MPI_Status stats;
+  printf("ProducerListener\n");
+  while (1 != 0)
+  {
+    int message;
+    MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+    printf("%d\n",message );
+
+	// Down no semáforo do produtor	
+	//pthread_mutex_lock(&mutex_produtor);
+	
+	if(producedItens(buffer) < MAXBUFFER)
+	{
+		int answer = -400;
+		SendData(answer, stats);
+				
+		int message;
+		MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+		printf("%d\n",message );
+		
+		// Lock! Semáforo do buffer (utilização)
+		//pthread_mutex_lock(&mutex_buffer);
+		
+		buffer[producerIndex] = message;
+		producerIndex = producerIndex < MAXBUFFER ? producerIndex + 1 : 0;	
+		
+		// Unlock! Semáforo do buffer (utilização)
+		//pthread_mutex_unlock(&mutex_buffer);
+		
+		// Up semáforo do produtor	
+		//pthread_mutex_unlock(&mutex_produtor);				
+	}
+  }
+}
+
+void * ConsumerListener()
+{
+  MPI_Status stats;
+  printf("ConsumerListener\n");
+  while (1 != 0)
+  {
+    int message;
+    MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
+    printf("%d\n",message );
+    
+    // Down semáforo do consumidor
+    //pthread_mutex_lock(&mutex_consumidor);	
+    
+    if(message == -102)
+    {
+		if(buffer != NULL && producedItens(buffer))
+		{			
+			// Lock! Semáforo do buffer (utilização)
+			//pthread_mutex_lock(&mutex_buffer);	
+			
+			int message = buffer[consumerIndex];	
+			SendData(message, stats);	
+			
+			buffer[consumerIndex] = 0;			
+			consumerIndex = consumerIndex < MAXBUFFER ? consumerIndex + 1 : 0;	
+				
+			// Unlock! Semáforo do buffer (utilização)
+			//pthread_mutex_unlock(&mutex_buffer);						
+		}
+		else
+		{
+			int answer = -401;
+			MPI_Send (&answer, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);	
+			printf("%d\n",answer );			
+			
+			int message = buffer[consumerIndex];	
+			SendData(message, stats);	
+			
+			buffer[consumerIndex] = 0;			
+			consumerIndex = consumerIndex < MAXBUFFER ? consumerIndex + 1 : 0;
+		}
+		
+		// Up semáforo do produtor
+		//pthread_mutex_unlock(&mutex_consumidor);
+	}    
+  }
+}
+
+void SendData(int message, MPI_Status stats)
+{	
+	MPI_Send (&message, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);	
+	printf("%d\n", message);			
+}
+
+int producedItens(int buffer[MAXBUFFER])
+{
+	int i, total = 0;
+	
+	for(i=0; i<MAXBUFFER; i++)
+	{
+		if(buffer[i])
+		{
+			total++;
+		}
+	}
+	
+	return total;
 }
