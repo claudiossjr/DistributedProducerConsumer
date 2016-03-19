@@ -212,6 +212,11 @@ void * ProducerListener()
         //4. Unlock buffer mutex
         // sem_post (&mutex_buffer);
       }
+      else if (ProducedItens (buffer) < MAXBUFFER && (buffer[producerIndex] != 0))
+      {
+        producerIndex ++;
+        if (producerIndex == MAXBUFFER) producerIndex = 0;
+      }
       sem_post (&mutex_buffer);
     }
 
