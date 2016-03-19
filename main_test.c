@@ -190,6 +190,20 @@ void * ProducerListener()
       {
         //1.2.1 Free to send Data
         hasToWait = 0;
+        SendData (-400, stats);
+
+        int data;
+        MPI_Recv (&data, 1, MPI_INT, stats.MPI_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+        printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
+        //1. Lock buffer mutex
+        // sem_wait(&mutex_buffer);
+        //2. In the producerIndex on buffer put the data
+        buffer[producerIndex] = data;
+        //3. increment producerIndex
+        producerIndex ++;
+        if (producerIndex == MAXBUFFER) producerIndex = 0;
+        //4. Unlock buffer mutex
+        // sem_post (&mutex_buffer);
       }
       sem_post (&mutex_buffer);
     }
@@ -198,23 +212,23 @@ void * ProducerListener()
     {
       SendData (-401, stats);
     }
-    else
-    {
-      SendData (-400, stats);
-
-      int data;
-      MPI_Recv (&data, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-      printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
-      //1. Lock buffer mutex
-      sem_wait(&mutex_buffer);
-      //2. In the producerIndex on buffer put the data
-      buffer[producerIndex] = data;
-      //3. increment producerIndex
-      producerIndex ++;
-      if (producerIndex == MAXBUFFER) producerIndex = 0;
-      //4. Unlock buffer mutex
-      sem_post (&mutex_buffer);
-    }
+    // else
+    // {
+    //   SendData (-400, stats);
+    //
+    //   int data;
+    //   MPI_Recv (&data, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+    //   printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
+    //   //1. Lock buffer mutex
+    //   sem_wait(&mutex_buffer);
+    //   //2. In the producerIndex on buffer put the data
+    //   buffer[producerIndex] = data;
+    //   //3. increment producerIndex
+    //   producerIndex ++;
+    //   if (producerIndex == MAXBUFFER) producerIndex = 0;
+    //   //4. Unlock buffer mutex
+    //   sem_post (&mutex_buffer);
+    // }
     sem_wait (&mutex_buffer);
     PrintBuffer();
     sem_post (&mutex_buffer);
@@ -285,7 +299,7 @@ void * ConsumerListener()
 void SendData(int message, MPI_Status stats)
 {
 	MPI_Send (&message, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
-	//printf("%d\n", message);
+	printf("Sending|%d|To|%d\n", message, stats.MPI_SOURCE);
 }
 
 int ProducedItens(int buffer[MAXBUFFER])
