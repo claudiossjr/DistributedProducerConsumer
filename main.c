@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <mpi.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define MAXBUFFER 10
 #define COORDINATORLABEL 0
@@ -41,6 +42,21 @@ sem_t mutex_buffer; // True - False
 
 int main(int argc, char **argv)
 {
+  if (sem_init(&mutex_produtor, 0, 1) != 0)
+	{
+    exit(1);
+	}
+
+  if (sem_init(&mutex_consumidor, 0, 1) != 0)
+	{
+    exit(1);
+	}
+
+  if (sem_init(&mutex_buffer, 0, 1) != 0)
+	{
+    exit(1);
+	}
+
   // =============================
   // Initialize MPI structures
   // =============================
@@ -147,10 +163,10 @@ void * ProducerListener()
 		producerIndex = producerIndex < MAXBUFFER ? producerIndex + 1 : 0;	
 		
 		// Unlock! Semáforo do buffer (utilização)
-		//pthread_mutex_unlock(&mutex_buffer);
+		sem_post(&mutex_buffer);
 		
 		// Up semáforo do produtor	
-		//pthread_mutex_unlock(&mutex_produtor);				
+		sem_post(&mutex_produtor);				
 	}
   }
 }
@@ -166,14 +182,14 @@ void * ConsumerListener()
     printf("%d\n",message );
     
     // Down semáforo do consumidor
-    //pthread_mutex_lock(&mutex_consumidor);	
+    sem_wait(&mutex_consumidor);	
     
     if(message == -102)
     {
 		if(buffer != NULL && producedItens(buffer))
 		{			
 			// Lock! Semáforo do buffer (utilização)
-			//pthread_mutex_lock(&mutex_buffer);	
+			sem_wait(&mutex_buffer);	
 			
 			int message = buffer[consumerIndex];	
 			SendData(message, stats);	
@@ -182,7 +198,7 @@ void * ConsumerListener()
 			consumerIndex = consumerIndex < MAXBUFFER ? consumerIndex + 1 : 0;	
 				
 			// Unlock! Semáforo do buffer (utilização)
-			//pthread_mutex_unlock(&mutex_buffer);						
+			sem_post(&mutex_buffer);						
 		}
 		else
 		{
@@ -198,7 +214,7 @@ void * ConsumerListener()
 		}
 		
 		// Up semáforo do produtor
-		//pthread_mutex_unlock(&mutex_consumidor);
+		sem_post(&mutex_consumidor);
 	}    
   }
 }
