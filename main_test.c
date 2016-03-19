@@ -1,6 +1,6 @@
 /*
+* Author: Claudio Santos
   * Problem: Producer and Consumer distributed Problem using openMPI
-  * Author: Claudio Santos
 */
 
 #include <stdio.h>
@@ -16,7 +16,7 @@
 #define COORDINATORLABEL 0
 #define PRODUCERLABEL 1
 #define CONSUMERLABEL 2
-#define TIMETOWAIT 2
+#define TIMETOWAIT 1
 
 void * ProducerListener();
 void * ConsumerListener();
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     exit(1);
 	}
 
-  if (sem_init(&mutex_consumidor, 0, 1) != 0)
+  if (sem_init(&mutex_consumidor, 0, MAXBUFFER) != 0)
 	{
     exit(1);
 	}
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
       if (answer == -400)
       {
         int randomicNumber = rand() % 100;
-        printf("Data Produced |%d\n",randomicNumber );
+        // printf("Data Produced |%d\n",randomicNumber );
         MPI_Send (&randomicNumber, 1, MPI_INT, COORDINATORLABEL, PRODUCERLABEL, MPI_COMM_WORLD);
       }
       else
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
         /**
           WAIT FOR A SHORT PERIOD OF TIME AND THEN REQUEST TIMESPACE AGAIN
         */
-        WaitFor (TIMETOWAIT);
+        WaitFor (TIMETOWAIT + 1);
       }
     }
   }
@@ -142,19 +142,19 @@ int main(int argc, char **argv)
       int answer;
       MPI_Recv (&answer, 1, MPI_INT, COORDINATORLABEL, COORDINATORLABEL, MPI_COMM_WORLD, &stats);
       // printf("%d\n",answer );
-
       if (answer == -400)
       {
         int data;
         MPI_Recv (&data, 1, MPI_INT, COORDINATORLABEL, COORDINATORLABEL, MPI_COMM_WORLD, &stats);
-         printf("Data Consumed |%d\n",data );
+        // printf("Data Consumed |%d\n",data );
       }
       else
       {
+
         /**
           WAIT FOR A SHORT PERIOD OF TIME AND THEN REQUEST TIMESPACE AGAIN
         */
-        WaitFor (TIMETOWAIT);
+        WaitFor (TIMETOWAIT + 1);
       }
     }
   }
@@ -180,13 +180,20 @@ void * ProducerListener()
 
 
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+    // printf("Producer receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
+    // printf("Producer Index|%d|Consumer Index |%d|\n", producerIndex, consumerIndex );
+    sem_wait (&mutex_buffer);
+    PrintBuffer();
+    sem_post (&mutex_buffer);
 
     //1. If Message is Producer Request
     if (message == -101)
     {
       //1.2. Check if buffer is not full
+      sem_post (&mutex_consumidor);
+      sem_wait (&mutex_produtor);
       sem_wait (&mutex_buffer);
-      if (ProducedItens (buffer) != MAXBUFFER && (buffer[producerIndex] == 0))
+      if (ProducedItens (buffer) < MAXBUFFER )
       {
         //1.2.1 Free to send Data
         hasToWait = 0;
@@ -194,7 +201,7 @@ void * ProducerListener()
 
         int data;
         MPI_Recv (&data, 1, MPI_INT, stats.MPI_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-        printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
+        // printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
         //1. Lock buffer mutex
         // sem_wait(&mutex_buffer);
         //2. In the producerIndex on buffer put the data
@@ -212,26 +219,11 @@ void * ProducerListener()
     {
       SendData (-401, stats);
     }
-    // else
-    // {
-    //   SendData (-400, stats);
-    //
-    //   int data;
-    //   MPI_Recv (&data, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-    //   printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
-    //   //1. Lock buffer mutex
-    //   sem_wait(&mutex_buffer);
-    //   //2. In the producerIndex on buffer put the data
-    //   buffer[producerIndex] = data;
-    //   //3. increment producerIndex
-    //   producerIndex ++;
-    //   if (producerIndex == MAXBUFFER) producerIndex = 0;
-    //   //4. Unlock buffer mutex
-    //   sem_post (&mutex_buffer);
-    // }
+
     sem_wait (&mutex_buffer);
     PrintBuffer();
     sem_post (&mutex_buffer);
+
   }
 }
 
@@ -247,13 +239,19 @@ void * ConsumerListener()
 
 
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
-    printf("Receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
-    printf("Consumer Index |%d| Producer Index| %d\n",consumerIndex, producerIndex );
+    // printf("Receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
+    // printf("Consumer Index |%d| Producer Index| %d\n",consumerIndex, producerIndex );
+    sem_wait (&mutex_buffer);
+    PrintBuffer();
+    sem_post (&mutex_buffer);
 
     //1. If message is a consumer request.
     if (message == -102)
     {
       //1.1 If has data to consume
+      sem_post (&mutex_produtor);
+      sem_wait (&mutex_consumidor);
+      // printf("consumindo\n");
       sem_wait (&mutex_buffer);
       if (ProducedItens(buffer))
       {
@@ -272,6 +270,8 @@ void * ConsumerListener()
             //1.1.1.2.1 increment consumerIndex
             consumerIndex ++;
             if (consumerIndex == MAXBUFFER) consumerIndex = 0;
+            SendData (-400, stats);
+            SendData (temp, stats);
           }
           //1.1.1.4 Unlock buffer
         }
@@ -283,23 +283,17 @@ void * ConsumerListener()
     {
       SendData (-401, stats);
     }
-    else
-    {
-      SendData (-400, stats);
-      SendData (temp, stats);
-    }
-
     sem_wait (&mutex_buffer);
     PrintBuffer();
     sem_post (&mutex_buffer);
-
   }
 }
 
 void SendData(int message, MPI_Status stats)
 {
 	MPI_Send (&message, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
-	printf("Sending|%d|To|%d\n", message, stats.MPI_SOURCE);
+	// printf("Sending|%d|To|%d\n", message, stats.MPI_SOURCE);
+  WaitFor (TIMETOWAIT);
 }
 
 int ProducedItens(int buffer[MAXBUFFER])
