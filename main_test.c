@@ -117,6 +117,7 @@ int main(int argc, char **argv)
       if (answer == -400)
       {
         int randomicNumber = rand() % 100;
+        printf("Data Produced |%d\n",randomicNumber );
         MPI_Send (&randomicNumber, 1, MPI_INT, COORDINATORLABEL, PRODUCERLABEL, MPI_COMM_WORLD);
       }
       else
@@ -146,7 +147,7 @@ int main(int argc, char **argv)
       {
         int data;
         MPI_Recv (&data, 1, MPI_INT, COORDINATORLABEL, COORDINATORLABEL, MPI_COMM_WORLD, &stats);
-         printf("Data Consumed %d\n",data );
+         printf("Data Consumed |%d\n",data );
       }
       else
       {
@@ -184,11 +185,13 @@ void * ProducerListener()
     if (message == -101)
     {
       //1.2. Check if buffer is not full
-      if (ProducedItens (buffer) != MAXBUFFER)
+      sem_wait (&mutex_buffer);
+      if (ProducedItens (buffer) != MAXBUFFER && (buffer[producerIndex] == 0))
       {
         //1.2.1 Free to send Data
         hasToWait = 0;
       }
+      sem_post (&mutex_buffer);
     }
 
     if (hasToWait)
@@ -201,7 +204,7 @@ void * ProducerListener()
 
       int data;
       MPI_Recv (&data, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-      printf("Data Produced %d, put on position%d\n",data, producerIndex );
+      printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
       //1. Lock buffer mutex
       sem_wait(&mutex_buffer);
       //2. In the producerIndex on buffer put the data
@@ -230,20 +233,20 @@ void * ConsumerListener()
 
 
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
-    printf("Receive message %d  from %d\n",message, stats.MPI_SOURCE );
-    printf("Consumer Index %d, Producer Index %d\n",consumerIndex, producerIndex );
+    printf("Receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
+    printf("Consumer Index |%d| Producer Index| %d\n",consumerIndex, producerIndex );
 
     //1. If message is a consumer request.
     if (message == -102)
     {
       //1.1 If has data to consume
+      sem_wait (&mutex_buffer);
       if (ProducedItens(buffer))
       {
         //1.1.1 If the consumer index isn't equal to producer index
         if (consumerIndex != producerIndex || (consumerIndex == producerIndex && ProducedItens(buffer) == MAXBUFFER))
         {
           //1.1.1.1 Lock mutex_buffer to access buffer Data
-          sem_wait (&mutex_buffer);
           //1.1.1.2 If has data in the current consumerIndex is different from zeor
           if (buffer[consumerIndex])
           {
@@ -257,9 +260,9 @@ void * ConsumerListener()
             if (consumerIndex == MAXBUFFER) consumerIndex = 0;
           }
           //1.1.1.4 Unlock buffer
-          sem_post (&mutex_buffer);
         }
       }
+      sem_post (&mutex_buffer);
     }
 
     if (hasToWait)
