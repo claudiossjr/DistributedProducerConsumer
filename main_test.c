@@ -193,7 +193,7 @@ void * ProducerListener()
       sem_post (&mutex_consumidor);
       sem_wait (&mutex_produtor);
       sem_wait (&mutex_buffer);
-      if (ProducedItens (buffer) < MAXBUFFER )
+      if (ProducedItens (buffer) < MAXBUFFER && (buffer[producerIndex] == 0))
       {
         //1.2.1 Free to send Data
         hasToWait = 0;
