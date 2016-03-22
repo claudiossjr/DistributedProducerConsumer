@@ -1,5 +1,5 @@
 /*
-* Author: Claudio Santos
+* Author: Claudio Santos e Gustavo Dauer
   * Problem: Producer and Consumer distributed Problem using openMPI
 */
 
@@ -117,7 +117,9 @@ int main(int argc, char **argv)
       if (answer == -400)
       {
         int randomicNumber = rand() % 100;
-        // printf("Data Produced |%d\n",randomicNumber );
+        int aux;
+        sem_getvalue(&mutex_produtor, &aux);        
+         printf("Data Produced |%d | mutexProdutor: %d\n",randomicNumber, aux );
         MPI_Send (&randomicNumber, 1, MPI_INT, COORDINATORLABEL, PRODUCERLABEL, MPI_COMM_WORLD);
       }
       else
@@ -146,7 +148,9 @@ int main(int argc, char **argv)
       {
         int data;
         MPI_Recv (&data, 1, MPI_INT, COORDINATORLABEL, COORDINATORLABEL, MPI_COMM_WORLD, &stats);
-        // printf("Data Consumed |%d\n",data );
+        int aux;
+        sem_getvalue(&mutex_consumidor, &aux);        
+         printf("Data Consumed |%d | mutexConsumidor: %d\n\n",data, aux );
       }
       else
       {
