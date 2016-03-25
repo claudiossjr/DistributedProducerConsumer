@@ -25,6 +25,12 @@ void SendData();
 void PrintBuffer();
 void WaitFor (unsigned int secs);
 
+// ======================
+// FUNCTION FILE MANANGER
+// ======================
+void WriteOnProducerFile (File *f, char *message);
+void WriteOnConsumerFile (File *f, char *message);
+
 // =============================
 // Initialize structures
 // =============================
@@ -172,6 +178,7 @@ void * ProducerListener()
 {
   MPI_Status stats;
   printf("ProducerListener\n");
+  File *f = fopen ("producer_log_file.txt");
   while (1 != 0)
   {
     int message,
@@ -180,6 +187,7 @@ void * ProducerListener()
 
 
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
+
     // printf("Producer receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
     // printf("Producer Index|%d|Consumer Index |%d|\n", producerIndex, consumerIndex );
     // sem_wait (&mutex_buffer);
@@ -225,12 +233,14 @@ void * ProducerListener()
       SendData (-401, stats);
     }
   }
+  fclose (f);
 }
 
 void * ConsumerListener()
 {
   MPI_Status stats;
   printf("ConsumerListener\n");
+  File *f = fopen ("producer_log_file.txt");
   while (1 != 0)
   {
     int message,
@@ -288,6 +298,7 @@ void * ConsumerListener()
     //
     // sem_post (&mutex_buffer);
   }
+  fclose (f);
 }
 
 void SendData(int message, MPI_Status stats)
