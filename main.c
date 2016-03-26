@@ -1,5 +1,5 @@
 /*
-* Author: Claudio Santos
+* Author: Claudio Santos e Gustavo
   * Problem: Producer and Consumer distributed Problem using openMPI
 */
 
@@ -28,8 +28,8 @@ void WaitFor (unsigned int secs);
 // ======================
 // FUNCTION FILE MANANGER
 // ======================
-void WriteOnProducerFile (File *f, char *message);
-void WriteOnConsumerFile (File *f, char *message);
+void WriteOnProducerFile (FILE *f, char *message);
+void WriteOnConsumerFile (FILE *f, char *message);
 
 // =============================
 // Initialize structures
@@ -178,7 +178,7 @@ void * ProducerListener()
 {
   MPI_Status stats;
   printf("ProducerListener\n");
-  File *f = fopen ("producer_log_file.txt");
+  // File *f = fopen ("producer_log_file.txt");
   while (1 != 0)
   {
     int message,
@@ -188,8 +188,8 @@ void * ProducerListener()
 
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
 
-    // printf("Producer receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
-    // printf("Producer Index|%d|Consumer Index |%d|\n", producerIndex, consumerIndex );
+    printf("%d|Producer|Producer receive message| %d | from| %d\n",(int)time(NULL),message, stats.MPI_SOURCE );
+    printf("%d|Producer|Producer Index|%d|Consumer Index |%d|\n",(int)time(NULL), producerIndex, consumerIndex );
     // sem_wait (&mutex_buffer);
     // PrintBuffer();
     // sem_post (&mutex_buffer);
@@ -202,26 +202,31 @@ void * ProducerListener()
       pthread_mutex_lock (&mutex_buffer);
       if (ProducedItens (buffer) < MAXBUFFER && (buffer[producerIndex] == 0))
       {
+        pthread_mutex_unlock (&mutex_buffer);
         //1.2.1 Free to send Data
         hasToWait = 0;
         SendData (-400, stats);
 
         int data;
         MPI_Recv (&data, 1, MPI_INT, stats.MPI_SOURCE, PRODUCERLABEL, MPI_COMM_WORLD, &stats);
-        // printf("Data Produced |%d| put on position|%d|\n",data, producerIndex );
+        printf("%d|Producer|Data Produced |%d| put on position|%d|\n",(int)time(NULL),data, producerIndex );
         //1. Lock buffer mutex
         // sem_wait(&mutex_buffer);
         //2. In the producerIndex on buffer put the data
+        pthread_mutex_lock (&mutex_buffer);
         buffer[producerIndex] = data;
+        pthread_mutex_unlock (&mutex_buffer);
         //3. increment producerIndex
         producerIndex ++;
         if (producerIndex == MAXBUFFER) producerIndex = 0;
         //4. Unlock buffer mutex
         // sem_post (&mutex_buffer);
+        pthread_mutex_lock (&mutex_buffer);
         PrintBuffer();
       }
       else if (ProducedItens (buffer) < MAXBUFFER && (buffer[producerIndex] != 0))
       {
+        hasToWait = 1;
         producerIndex ++;
         if (producerIndex == MAXBUFFER) producerIndex = 0;
       }
@@ -233,24 +238,23 @@ void * ProducerListener()
       SendData (-401, stats);
     }
   }
-  fclose (f);
+  // fclose (f);
 }
 
 void * ConsumerListener()
 {
   MPI_Status stats;
   printf("ConsumerListener\n");
-  File *f = fopen ("producer_log_file.txt");
+  // FILE *f = fopen ("producer_log_file.txt");
   while (1 != 0)
   {
     int message,
         hasToWait = 1,
         temp;
 
-
     MPI_Recv (&message, 1, MPI_INT, MPI_ANY_SOURCE, CONSUMERLABEL, MPI_COMM_WORLD, &stats);
-    // printf("Receive message| %d | from| %d\n",message, stats.MPI_SOURCE );
-    // printf("Consumer Index |%d| Producer Index| %d\n",consumerIndex, producerIndex );
+    printf("%d|ConsumerMessage|Receive message| %d | from| %d\n",(int)time(NULL),message, stats.MPI_SOURCE );
+    printf("%d|ConsumerMessage|Consumer Index |%d| Producer Index| %d\n",(int)time(NULL),consumerIndex, producerIndex );
     // sem_wait (&mutex_buffer);
     // PrintBuffer();
     // sem_post (&mutex_buffer);
@@ -272,16 +276,22 @@ void * ConsumerListener()
           //1.1.1.2 If has data in the current consumerIndex is different from zeor
           if (buffer[consumerIndex])
           {
+            pthread_mutex_unlock (&mutex_buffer);
+
+            SendData (-400, stats);
+
             hasToWait = 0;
             //1.1.1.2.1 access buffer and get data in consumerIndex
             temp = buffer[consumerIndex];
             buffer[consumerIndex] = 0;
 
+            SendData (temp, stats);
             //1.1.1.2.1 increment consumerIndex
+
             consumerIndex ++;
             if (consumerIndex == MAXBUFFER) consumerIndex = 0;
-            SendData (-400, stats);
-            SendData (temp, stats);
+
+            pthread_mutex_lock (&mutex_buffer);
             PrintBuffer();
           }
           //1.1.1.4 Unlock buffer
@@ -298,13 +308,13 @@ void * ConsumerListener()
     //
     // sem_post (&mutex_buffer);
   }
-  fclose (f);
+  // fclose (f);
 }
 
 void SendData(int message, MPI_Status stats)
 {
 	MPI_Send (&message, 1, MPI_INT, stats.MPI_SOURCE, COORDINATORLABEL, MPI_COMM_WORLD);
-	// printf("Sending|%d|To|%d\n", message, stats.MPI_SOURCE);
+	printf("%d|SendingData|Sending|%d|To|%d\n",(int)time(NULL), message, stats.MPI_SOURCE);
   WaitFor (TIMETOWAIT);
 }
 
@@ -326,7 +336,7 @@ int ProducedItens(int buffer[MAXBUFFER])
 void PrintBuffer()
 {
   int i;
-  char chrBuffer[10];
+  printf("ZZZZZZZZZ| ");
   for (i = 0; i < MAXBUFFER; i ++ )
   {
     printf("%d\t", buffer[i] );
